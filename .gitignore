@@ -1,0 +1,4 @@
+.claude/
+ui_error.log
+__pycache__/
+*.pyc
