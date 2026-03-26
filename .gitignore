@@ -1,4 +1,16 @@
+# Git-Swap — ignored files
+
+# Claude Code workspace
 .claude/
+
+# Runtime logs written on UI crash
 ui_error.log
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
