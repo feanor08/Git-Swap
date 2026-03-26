@@ -177,13 +177,29 @@ Pick your platform in the setup UI. Self-hosted instances work too — just sele
 
 ---
 
+## Install (one-liner)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/feanor08/Git-Swap/main/install.sh | bash
+```
+
+Clones the repo to `~/.git-swap` and opens the setup UI.
+
+---
+
 ## What's in the box
 
 ```
 Git-Swap/
+├── install.sh                 one-command installer
 ├── git_identity_switcher.py   CLI entry point
 ├── git_identity_ui.py         UI entry point
-├── Git Identity Switcher.command   double-click launcher for Finder
+├── Git Identity Switcher.app  double-click macOS app (drag to Applications)
+├── Git Identity Switcher.command   fallback terminal launcher
+├── tests/
+│   ├── test_ssh_config.py     SSH config block read/write/update/remove
+│   ├── test_swap_detection.py identity detection cascade
+│   └── test_cli_smoke.py      import + argparse smoke tests
 └── gitswap/
     ├── constants.py           all paths and alias names
     ├── utils.py               subprocess wrapper + output helpers
@@ -197,6 +213,12 @@ Git-Swap/
         ├── widgets.py         reusable tkinter components
         ├── installer.py       gitSwap shell script + PATH setup
         └── app.py             the UI app
+```
+
+Run tests:
+
+```bash
+python3 -m unittest discover -s tests -v
 ```
 
 ---

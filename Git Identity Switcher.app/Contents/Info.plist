@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Required: name of the executable inside Contents/MacOS/ -->
+    <key>CFBundleExecutable</key>
+    <string>Git Identity Switcher</string>
+
+    <!-- App identity -->
+    <key>CFBundleIdentifier</key>
+    <string>com.feanor08.git-identity-switcher</string>
+    <key>CFBundleName</key>
+    <string>Git Identity Switcher</string>
+    <key>CFBundleDisplayName</key>
+    <string>Git Identity Switcher</string>
+
+    <!-- Bundle type: APPL = application -->
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+
+    <!-- Version -->
+    <key>CFBundleVersion</key>
+    <string>1.0.0</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+
+    <!-- Retina support -->
+    <key>NSHighResolutionCapable</key>
+    <true/>
+
+    <!-- Required for apps that open a window -->
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+</dict>
+</plist>

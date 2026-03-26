@@ -1,0 +1,53 @@
+#!/bin/bash
+#
+# Git Identity Switcher.app — macOS application launcher
+#
+# This script is the executable entry point for the .app bundle.
+# macOS launches it when the user double-clicks the app in Finder.
+#
+# Layout assumed:
+#   <project>/
+#   ├── git_identity_ui.py
+#   └── Git Identity Switcher.app/
+#       └── Contents/
+#           └── MacOS/
+#               └── Git Identity Switcher   ← this file
+#
+# Three levels up from Contents/MacOS/ lands at the project root.
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+UI_SCRIPT="$PROJECT_DIR/git_identity_ui.py"
+
+# ── Find Python 3.9+ ──────────────────────────────────────────────────────────
+PYTHON=""
+for candidate in \
+    /usr/local/bin/python3 \
+    /opt/homebrew/bin/python3 \
+    /usr/bin/python3 \
+    "$(command -v python3 2>/dev/null)"
+do
+    if [ -x "$candidate" ]; then
+        # Require 3.9+
+        ok=$("$candidate" -c \
+            'import sys; print(int(sys.version_info[:2] >= (3,9)))' 2>/dev/null)
+        if [ "$ok" = "1" ]; then
+            PYTHON="$candidate"
+            break
+        fi
+    fi
+done
+
+if [ -z "$PYTHON" ]; then
+    osascript -e 'display alert "Python 3.9+ not found" message "Install Python 3 from python.org or run: brew install python3" as warning buttons {"OK"} default button "OK"'
+    exit 1
+fi
+
+if [ ! -f "$UI_SCRIPT" ]; then
+    osascript -e "display alert \"UI script not found\" message \"Expected: $UI_SCRIPT\" as warning buttons {\"OK\"} default button \"OK\""
+    exit 1
+fi
+
+# Launch the UI.  exec replaces this shell process with Python so the app
+# appears correctly in the Dock and the window receives focus normally.
+exec "$PYTHON" "$UI_SCRIPT"
