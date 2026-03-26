@@ -17,6 +17,9 @@ macOS-specific notes:
     failures" errors on servers that limit authentication attempts.
 """
 
+from __future__ import annotations
+
+import re
 from pathlib import Path
 
 from gitswap.constants import SSH_DIR, SSH_CONFIG
@@ -54,10 +57,12 @@ def generate_key(key_path: Path, comment: str) -> None:
 
 def ensure_ssh_config_block(alias: str, hostname: str, key_path: Path) -> None:
     """
-    Append a Host block to ~/.ssh/config for `alias` if one does not exist.
+    Write a Host block for `alias` to ~/.ssh/config.
 
-    The block maps the alias to the real hostname and pins the identity file,
-    so SSH always uses the right key regardless of what the agent offers.
+    - If no block exists yet: appends it.
+    - If the block exists with the same hostname: skips (idempotent).
+    - If the block exists with a DIFFERENT hostname (e.g. reconfiguring to a
+      new platform): removes the stale block and writes the updated one.
 
     Example block written:
         Host git-personal
@@ -70,9 +75,19 @@ def ensure_ssh_config_block(alias: str, hostname: str, key_path: Path) -> None:
     """
     existing = SSH_CONFIG.read_text() if SSH_CONFIG.exists() else ""
 
-    if f"Host {alias}" in existing:
-        info(f"SSH config block already present for '{alias}'")
-        return
+    # Matches "\nHost alias" followed by any number of indented continuation lines.
+    block_pattern = rf'\nHost {re.escape(alias)}[ \t]*\n(?:[ \t][^\n]*\n)*'
+    match = re.search(block_pattern, existing)
+
+    if match:
+        hostname_match = re.search(r'HostName\s+(\S+)', match.group())
+        existing_hostname = hostname_match.group(1) if hostname_match else ""
+        if existing_hostname == hostname:
+            info(f"SSH config block already present for '{alias}'")
+            return
+        # Hostname changed — strip the stale block before rewriting.
+        warn(f"SSH config: '{alias}' hostname changed {existing_hostname} → {hostname}")
+        existing = re.sub(block_pattern, '\n', existing)
 
     block = (
         f"\nHost {alias}\n"
@@ -83,10 +98,28 @@ def ensure_ssh_config_block(alias: str, hostname: str, key_path: Path) -> None:
         f"    UseKeychain yes\n"
         f"    IdentitiesOnly yes\n"
     )
-    with SSH_CONFIG.open("a") as fh:
-        fh.write(block)
+    SSH_CONFIG.write_text(existing + block)
     SSH_CONFIG.chmod(0o600)
     success(f"Added SSH config: '{alias}' → {hostname}")
+
+
+def remove_ssh_config_block(alias: str) -> bool:
+    """
+    Remove the Host block for `alias` from ~/.ssh/config.
+
+    Returns True if a block was found and removed, False if nothing was there.
+    Safe to call when ~/.ssh/config does not exist.
+    """
+    if not SSH_CONFIG.exists():
+        return False
+
+    existing = SSH_CONFIG.read_text()
+    block_pattern = rf'\nHost {re.escape(alias)}[ \t]*\n(?:[ \t][^\n]*\n)*'
+    updated, count = re.subn(block_pattern, '\n', existing)
+    if count:
+        SSH_CONFIG.write_text(updated)
+        success(f"Removed SSH config block for '{alias}'")
+    return bool(count)
 
 
 def add_key_to_agent(key_path: Path) -> None:

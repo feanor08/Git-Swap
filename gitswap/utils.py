@@ -7,6 +7,8 @@ These utilities are intentionally dependency-free (no internal package
 imports) so they can be safely imported by every other module.
 """
 
+from __future__ import annotations
+
 import subprocess
 import sys
 from typing import Any

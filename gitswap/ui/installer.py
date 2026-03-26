@@ -19,6 +19,8 @@ Install logic
    This write is idempotent — the line is only appended if not already present.
 """
 
+from __future__ import annotations
+
 import os
 import sys
 from pathlib import Path

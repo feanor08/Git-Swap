@@ -26,6 +26,7 @@ macOS only has one global `~/.gitconfig`. Every time you switch contexts you eit
 gitSwap              ← detects which identity you're on and flips to the other
 gitSwap work         ← forces work identity
 gitSwap personal     ← forces personal identity
+gitSwap status       ← shows current identity without making any change
 ```
 
 Each swap does three things atomically, in the current repo only:
@@ -211,6 +212,7 @@ python3 git_identity_switcher.py setup --personal-host github.com --work-host gi
 gitSwap                    # toggle
 gitSwap work               # force work
 gitSwap personal           # force personal
+gitSwap status             # show current identity (read-only)
 
 # Inspect / debug
 python3 git_identity_switcher.py show-remote
@@ -221,6 +223,9 @@ python3 git_identity_switcher.py test-work
 python3 git_identity_switcher.py set-identity --name "Ada" --email "ada@co.com"
 python3 git_identity_switcher.py use-personal --path myusername
 python3 git_identity_switcher.py use-work     --path myteam/backend
+
+# Remove all Git-Swap artifacts (keeps SSH keys)
+python3 git_identity_switcher.py uninstall
 ```
 
 ---

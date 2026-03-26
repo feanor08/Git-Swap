@@ -29,6 +29,8 @@ Two loaders are provided:
   load_config_or_none()  — used by the UI; returns None on failure (no crash).
 """
 
+from __future__ import annotations
+
 import json
 
 from gitswap.constants import CONFIG_FILE

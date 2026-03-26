@@ -26,8 +26,10 @@ Detection cascade used by bare `gitSwap` (no argument):
 If all three steps fail, the caller must supply an explicit profile name.
 """
 
+from __future__ import annotations
+
 from gitswap.constants import PERSONAL_HOST_ALIAS, WORK_HOST_ALIAS
-from gitswap.config import load_config
+from gitswap.config import load_config, load_config_or_none
 from gitswap.git_ops import (
     require_git_repo,
     get_remote_url,
@@ -36,7 +38,7 @@ from gitswap.git_ops import (
     set_remote_url,
     set_local_identity,
 )
-from gitswap.utils import info, success, die
+from gitswap.utils import run, info, success, die
 
 
 def detect_current_profile(config: dict) -> str | None:
@@ -103,6 +105,37 @@ def apply_profile(profile: str, config: dict) -> None:
 
     else:
         die(f"Unknown profile '{profile}'.  Use 'work' or 'personal'.")
+
+
+def cmd_status(args) -> None:
+    """
+    Print the current Git identity for this repo without making any changes.
+
+    Shows:
+      - Active profile (personal / work / unknown)
+      - Repo-local user.name and user.email
+      - Current origin remote URL
+    """
+    require_git_repo()
+    config = load_config_or_none()
+
+    url   = get_remote_url()
+    email = get_local_email()
+    name  = run(
+        ["git", "config", "--local", "user.name"], check=False, capture=True
+    ).stdout.strip()
+
+    profile = "(config not found)"
+    if config:
+        detected = detect_current_profile(config)
+        profile  = detected or "unknown — run: gitSwap work  OR  gitSwap personal"
+
+    print("\n=== Current Git Identity ===\n")
+    print(f"  profile  : {profile}")
+    print(f"  name     : {name  or '(not set locally)'}")
+    print(f"  email    : {email or '(not set locally)'}")
+    print(f"  remote   : {url   or '(none)'}")
+    print()
 
 
 def cmd_swap(args) -> None:

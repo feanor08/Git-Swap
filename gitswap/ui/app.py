@@ -25,12 +25,18 @@ the UI stays responsive.  Any UI update from the thread must be scheduled via
 self.after() — tkinter is not thread-safe.
 """
 
+from __future__ import annotations
+
+import re
+import shutil
 import subprocess
 import sys
 import threading
 import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox
+
+_EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
 
 from gitswap.config import load_config_or_none, save_config
 from gitswap.constants import PERSONAL_PUB, WORK_PUB, PLATFORMS
@@ -275,6 +281,19 @@ class App(tk.Tk):
             )
             return
 
+        invalid_emails = []
+        if not _EMAIL_RE.match(p_email):
+            invalid_emails.append(f"Personal email: {p_email!r}")
+        if not _EMAIL_RE.match(w_email):
+            invalid_emails.append(f"Work email: {w_email!r}")
+        if invalid_emails:
+            messagebox.showerror(
+                "Invalid email",
+                "These don't look like valid email addresses:\n• "
+                + "\n• ".join(invalid_emails),
+            )
+            return
+
         btn.configure(state="disabled", text="Setting up…")
 
         def step(msg: str) -> None:
@@ -339,7 +358,7 @@ class App(tk.Tk):
           - Reconfigure link
         """
         self._clear()
-        self._resize(500, 530)
+        self._resize(500, 560)
         f     = self._frame
         alias = cfg.get("alias", "gitSwap")
 
@@ -380,11 +399,12 @@ class App(tk.Tk):
         ic = card_frame(f)
         ic.pack(fill="x", pady=(0, 16))
         spacer(ic, 10).pack()
-        lbl(ic, f"  '{alias}' is ready — run it inside any git repo",
+        install_path = shutil.which(alias) or "not found on PATH — restart terminal"
+        lbl(ic, f"  '{alias}' is ready — {install_path}",
             fg=C["text"],
             font=("Helvetica Neue", 12, "bold"),
             ).pack(anchor="w", padx=6)
-        for cmd_str in (alias, f"{alias} work", f"{alias} personal"):
+        for cmd_str in (alias, f"{alias} work", f"{alias} personal", f"{alias} status"):
             tk.Label(
                 ic, text=f"    $ {cmd_str}",
                 bg=C["card"], fg=C["accent"], font=FMO,

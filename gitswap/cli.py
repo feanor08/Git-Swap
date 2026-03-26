@@ -12,17 +12,23 @@ Subcommands
   setup          Generate SSH keys, update ~/.ssh/config, add keys to agent.
   swap           Toggle or force a Git identity in the current repo.
                  This is what the installed `gitSwap` shell script calls.
+  status         Show the current identity for this repo (no changes made).
   use-personal   Manually point origin at the personal SSH alias.
   use-work       Manually point origin at the work SSH alias.
   set-identity   Set repo-local user.name and user.email.
   show-remote    Print current remotes and the repo-local git identity.
   test-personal  Run ssh -T to verify the personal SSH alias works.
   test-work      Run ssh -T to verify the work SSH alias works.
+  uninstall      Remove the gitSwap shell script, SSH config blocks, and config.
 """
 
+from __future__ import annotations
+
 import argparse
+import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 from gitswap.constants import (
     PERSONAL_KEY,
@@ -35,6 +41,7 @@ from gitswap.ssh import (
     ensure_ssh_dir,
     generate_key,
     ensure_ssh_config_block,
+    remove_ssh_config_block,
     add_key_to_agent,
 )
 from gitswap.git_ops import (
@@ -44,7 +51,7 @@ from gitswap.git_ops import (
     set_remote_url,
     set_local_identity,
 )
-from gitswap.swap import cmd_swap
+from gitswap.swap import cmd_swap, cmd_status
 from gitswap.utils import run, info, success, warn, die
 
 
@@ -97,7 +104,9 @@ def cmd_use_personal(args) -> None:
     require_git_repo()
     config = load_config()
     p      = config["personal"]
-    path   = args.path or p.get("path") or die("Pass --path USERNAME_OR_GROUP")
+    path   = args.path or p.get("path")
+    if not path:
+        die("Pass --path USERNAME_OR_GROUP")
     repo   = args.repo or infer_repo_name()
     url    = f"git@{PERSONAL_HOST_ALIAS}:{path}/{repo}.git"
     set_remote_url(url)
@@ -112,7 +121,9 @@ def cmd_use_work(args) -> None:
     require_git_repo()
     config = load_config()
     w      = config["work"]
-    path   = args.path or w.get("path") or die("Pass --path USERNAME_OR_GROUP")
+    path   = args.path or w.get("path")
+    if not path:
+        die("Pass --path USERNAME_OR_GROUP")
     repo   = args.repo or infer_repo_name()
     url    = f"git@{WORK_HOST_ALIAS}:{path}/{repo}.git"
     set_remote_url(url)
@@ -190,18 +201,77 @@ def cmd_test_work(args) -> None:
 
 
 # ---------------------------------------------------------------------------
+# uninstall
+# ---------------------------------------------------------------------------
+
+def cmd_uninstall(args) -> None:
+    """
+    Remove all artifacts created by Git-Swap setup:
+      - The gitSwap shell wrapper (found via PATH / stored config alias)
+      - SSH config blocks for git-personal and git-work
+      - The ~/.git_identity_switcher.json config file
+
+    SSH key files (~/.ssh/id_ed25519_personal / _work) are NOT deleted
+    because they may have been added to hosting platforms and are hard to
+    re-register.  Delete them manually if you want a full wipe.
+    """
+    from gitswap.config import load_config_or_none
+    from gitswap.constants import CONFIG_FILE
+
+    cfg   = load_config_or_none()
+    alias = (cfg or {}).get("alias", "gitSwap")
+
+    print("\n=== Uninstalling Git-Swap ===\n")
+
+    # 1. Remove the shell wrapper
+    wrapper = shutil.which(alias)
+    if wrapper:
+        try:
+            Path(wrapper).unlink()
+            success(f"Removed shell wrapper: {wrapper}")
+        except PermissionError:
+            warn(f"Permission denied removing {wrapper} — try: sudo rm {wrapper}")
+    else:
+        info(f"Shell wrapper '{alias}' not found on PATH — skipping")
+
+    # 2. Remove SSH config blocks
+    removed_p = remove_ssh_config_block(PERSONAL_HOST_ALIAS)
+    removed_w = remove_ssh_config_block(WORK_HOST_ALIAS)
+    if not removed_p:
+        info(f"No SSH config block found for '{PERSONAL_HOST_ALIAS}'")
+    if not removed_w:
+        info(f"No SSH config block found for '{WORK_HOST_ALIAS}'")
+
+    # 3. Remove the identity config file
+    if CONFIG_FILE.exists():
+        CONFIG_FILE.unlink()
+        success(f"Removed config file: {CONFIG_FILE}")
+    else:
+        info(f"Config file not found: {CONFIG_FILE}")
+
+    print()
+    success("Uninstall complete.")
+    info("SSH keys were NOT deleted — remove them manually if desired:")
+    info("  rm ~/.ssh/id_ed25519_personal ~/.ssh/id_ed25519_personal.pub")
+    info("  rm ~/.ssh/id_ed25519_work      ~/.ssh/id_ed25519_work.pub")
+    print()
+
+
+# ---------------------------------------------------------------------------
 # Argparse setup
 # ---------------------------------------------------------------------------
 
 COMMAND_MAP = {
     "setup":         cmd_setup,
     "swap":          cmd_swap,
+    "status":        cmd_status,
     "use-personal":  cmd_use_personal,
     "use-work":      cmd_use_work,
     "set-identity":  cmd_set_identity,
     "show-remote":   cmd_show_remote,
     "test-personal": cmd_test_personal,
     "test-work":     cmd_test_work,
+    "uninstall":     cmd_uninstall,
 }
 
 
@@ -226,6 +296,9 @@ Examples
   gitSwap work
   gitSwap personal
 
+  # Check which identity is active (read-only)
+  python3 git_identity_switcher.py status
+
   # One-off repo configuration
   python3 git_identity_switcher.py set-identity --name "Ada" --email "ada@co.com"
   python3 git_identity_switcher.py show-remote
@@ -233,6 +306,9 @@ Examples
   # Verify SSH connectivity
   python3 git_identity_switcher.py test-personal
   python3 git_identity_switcher.py test-work
+
+  # Remove all Git-Swap artifacts
+  python3 git_identity_switcher.py uninstall
 """,
     )
 
@@ -252,6 +328,10 @@ Examples
                             help="Toggle or force a Git identity in the current repo.")
     p_swap.add_argument("profile", nargs="?", choices=["personal", "work"],
                         help="Profile to switch to.  Omit to toggle automatically.")
+
+    # status
+    sub.add_parser("status",
+                   help="Show the active identity for this repo (read-only).")
 
     # use-personal
     p_up = sub.add_parser("use-personal",
@@ -284,6 +364,10 @@ Examples
                    help="Run ssh -T git@git-personal to verify connectivity.")
     sub.add_parser("test-work",
                    help="Run ssh -T git@git-work to verify connectivity.")
+
+    # uninstall
+    sub.add_parser("uninstall",
+                   help="Remove gitSwap script, SSH config blocks, and config file.")
 
     return parser
 

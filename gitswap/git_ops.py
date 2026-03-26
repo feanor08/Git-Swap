@@ -13,6 +13,8 @@ Design constraints:
     speaks raw git commands.  Profile logic lives in swap.py.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 
 from gitswap.utils import run, die
